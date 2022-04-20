@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="three.js"></script>
+    <title>Document</title>
+    <style>
+        .table * {
+            font-size: 18px;
+            padding: 4px;
+        }
+        td:not(:first-child) {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <pre>
+        # All values, except "height" are ratios whitch means 
+        # how they one parameter will relate to other.
+        # "redius", "middlepos", "middleheight" related to height
+        # "topRad", "middler1" - to computed radius
+    </pre>
+    <table>
+        <tr>
+            <td>height: </td>
+            <td><input type="number" step="10" id="height"></td>
+            <td>radius:</td>
+            <td><input type="number" step="0.05" id="radius"></td>
+        </tr>
+        <tr>
+            <td>topRad:</td>
+            <td><input type="number" step="0.05" id="topRad"></td>
+            <td>middlepos:</td>
+            <td><input type="number" step="0.05" id="middlepos"></td>
+        </tr>
+        <tr>
+            <td>middleheight:</td>
+            <td><input type="number" step="0.05" id="middleheight"></td>
+            <td>middler1:</td>
+            <td><input type="number" step="0.05" id="middler1"></td>
+        </tr>
+    </table>
+
+
+    <div>
+        <button onclick="calc()">draw</button>
+    </div>
+    <script>
+        var scene = new THREE.Scene();
+        var camera = new THREE.PerspectiveCamera(75, 1, 0.6, 1000);
+        var renderer = new THREE.WebGLRenderer();
+        renderer.setSize(400, 400);
+        document.body.appendChild(renderer.domElement);
+        const t = document.createElement('div');
+        t.className = 'table';
+        document.body.appendChild(t);
+
+        document.body.onkeyup = (e) => e.keyCode === 13 ? calc() : '';
+
+        document.getElementById('height').value = 250;
+        document.getElementById('radius').value = 0.5;
+        document.getElementById('middlepos').value = 0.25;
+        document.getElementById('topRad').value = 0.33;
+        document.getElementById('middleheight').value = 0.25;
+        document.getElementById('middler1').value = 0.66;
+
+        function getParamsAny(h, rRatio = 0.5, middleRRatio = (2/3), topRRatio = (1/3), middleHRatio = 0.25, middlePos = 0.25) {
+            const r = h*rRatio;
+            const r1 = r*middleRRatio;
+            const r2 = r*topRRatio;
+            const h1 = middlePos * h - (middleHRatio * h)/2;
+            const h2 = h*middleHRatio;
+            const h3 = h - h1 - h2;
+            const topSegment = calcAngle(0, r2, h3);
+            const middleSegment = calcAngle(r2, r1, h2);
+            const bottomSegment = calcAngle(r1, r, h1);
+
+            return {
+                topSegment: {...topSegment, r1:0, r2:r2, h:h3 },
+                middleSegment: {...middleSegment, r1:r2, r2:r1, h:h2 },
+                bottomSegment: {...bottomSegment, r1:r1, r2:r, h:h1 }
+            }
+        }
+        function getParamsV1(h) {
+            const r = h/2;
+            const r1 = (2*r)/3;
+            const r2 = r/3;
+            const h3 = (h * 2) / 3;
+            const h2 = 0.25 * h;
+            const h1 = h - h2 - h3;
+            const topSegment = calcAngle(0, r2, h3);
+            const middleSegment = calcAngle(r2, r1, h2);
+            const bottomSegment = calcAngle(r1, r, h1);
+
+            return {
+                topSegment: {...topSegment, r1:0, r2:r2, h:h3 },
+                middleSegment: {...middleSegment, r1:r2, r2:r1, h:h2 },
+                bottomSegment: {...bottomSegment, r1:r1, r2:r, h:h1 }
+            }
+        }
+        function getParamsV2(h) {
+            const r = h/2;
+            const r1 = r/2;
+            const h1 = 0.41 * h;
+            const h2 = h - h1;
+            const bottomSegment = calcAngle(r1, r, h1);
+            const topSegment = calcAngle(0, r1, h2);
+
+            return {
+                topSegment: {...topSegment, r1: 0, r2: r1, h: h2},
+                bottomSegment: {...bottomSegment, r1: r1, r2: r, h: h1}
+            }
+        }
+
+        function createCroyCanvas(r1, r2, angle, w = 200, h = 200, scale = 0.4) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const x0 = w / 2;
+            const y0 = h / 2;
+
+            r1 *= scale;
+            r2 *= scale;
+            canvas.width = w;
+            canvas.height = h;
+            ctx.strokeStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(x0, y0, r1, (angle / 180) * Math.PI, 0, true);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(x0, y0, r2, (angle / 180) * Math.PI, 0, true);
+            ctx.stroke();
+            const v1 = {
+                x1: x0 + r1*Math.cos((angle / 180) * Math.PI),
+                y1: y0 + r1*Math.sin((angle / 180) * Math.PI),
+                x2: x0 + r2*Math.cos((angle / 180) * Math.PI),
+                y2: y0 + r2*Math.sin((angle / 180) * Math.PI)
+            }
+            const v2 = {
+                x1: x0 + r1,
+                y1: y0,
+                x2: x0 + r2,
+                y2: y0
+            }
+
+            ctx.moveTo(v1.x1, v1.y1);
+            ctx.lineTo(v1.x2, v1.y2);
+            ctx.moveTo(v2.x1, v2.y1);
+            ctx.lineTo(v2.x2, v2.y2);
+
+            ctx.stroke();
+
+            return canvas;
+            
+        }
+
+        function createCroy3D(params) {
+            // scene.children.forEach(child => scene.remove(child));
+            while(scene.children.length > 0){ 
+                scene.remove(scene.children[0]); 
+            }
+
+            let conegeometry = new THREE.CylinderGeometry(params.topSegment.r1, params.topSegment.r2, params.topSegment.h, 50, false);
+            let conematerial = new THREE.MeshLambertMaterial({wireframe: true, color: 0x000000});
+            let cone = new THREE.Mesh(conegeometry, conematerial);
+            cone.position.set(0,params.topSegment.h/2,-300);
+            scene.add(cone);
+            conegeometry = new THREE.CylinderGeometry(params.middleSegment.r1, params.middleSegment.r2, params.middleSegment.h, 50, false);
+            conematerial = new THREE.MeshLambertMaterial({wireframe: true, color: 0x000000});
+            cone = new THREE.Mesh(conegeometry, conematerial);
+            cone.position.set(0,-params.middleSegment.h/2,-300);
+            scene.add(cone);
+            conegeometry = new THREE.CylinderGeometry(params.bottomSegment.r1, params.bottomSegment.r2, params.bottomSegment.h, 50, false);
+            conematerial = new THREE.MeshLambertMaterial({wireframe: true, color: 0x000000});
+            cone = new THREE.Mesh(conegeometry, conematerial);
+            cone.position.set(0,-params.middleSegment.h - params.bottomSegment.h/2,-300);
+            scene.add(cone);
+        }
+
+        function renderTableFromObject(obj, target = document.body, entityName = 'Segment') {
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            const buildElem = (e, t) => {
+                const td = document.createElement(e);
+                td.innerHTML = t;
+                return td;
+            }
+            const rows = Object.keys(obj);
+            const cols = Object.keys(obj[rows[0]]);
+
+            cols.unshift(entityName);
+            cols.forEach(col => {
+                thead.appendChild(buildElem('th', col));
+            })
+            thead.appendChild(buildElem('th', 'Croy'));
+            table.appendChild(thead);
+
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+
+                cols.forEach(col => {
+                    tr.appendChild(buildElem('td', col !== entityName ? roundDig(obj[row][col], 2) : row));
+                });
+
+                tr.appendChild(createCroyCanvas(obj[row].R1,obj[row].R2, obj[row].f));
+                table.appendChild(tr);
+            });
+
+
+            target.appendChild(table);
+
+        }
+
+        // const params = getParamsV1(250);
+
+        // for (const key in params) {
+        //     if (Object.hasOwnProperty.call(params, key)) {
+        //         const row = document.createElement('tr');
+        //         row.innerHTML = `<td>${key}</td><td>${roundDig(params[key].R1, 2)}</td><td>${roundDig(params[key].R2, 2)}</td><td>${roundDig(params[key].f, 2)}</td>`
+
+        //         document.querySelector('#table').appendChild(row)
+                
+        //     }
+        // }
+        const params = getParamsV1(250);
+        // renderTableFromObject(getParamsV2(250));
+        // renderTableFromObject(getParamsV1(250));
+
+        // createCroy3D(params);
+        
+        
+        function roundDig(num, n) {
+            if (+num === NaN) {
+                return num
+            }
+            return Math.round(num * (10**n)) / (10**n)
+        }
+
+        
+        function calcHip(a, b) {
+            return Math.pow(a**2 + b**2, 0.5)
+        }
+
+        function calcAngle(r_1, r_2, H) {
+            const L = Math.sqrt((r_2 - r_1)**2 + H**2)
+            const R1 = (L * r_1)/(r_2 - r_1);
+            const R2 = L + R1;
+
+            return {
+                f: 360 * (r_2 / R2),
+                R1, R2
+            };
+        }
+
+        function calc() {
+            renderer.clear();
+
+            document.querySelector('.table').innerHTML = '';
+            const height = +document.getElementById('height').value;
+            const radius = +document.getElementById('radius').value;
+            const middlepos = +document.getElementById('middlepos').value;
+            const topRad = +document.getElementById('topRad').value;
+            const middleheight = +document.getElementById('middleheight').value;
+            const middler1 = +document.getElementById('middler1').value;
+            const params = getParamsAny(height, radius, middler1, topRad, middleheight, middlepos);
+
+            renderTableFromObject(params, document.querySelector('.table'));
+            createCroy3D(params);
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
