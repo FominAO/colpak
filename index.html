@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="favicon.jpg">
     <script src="three.js"></script>
-    <title>Document</title>
+    <title>Colpac</title>
     <style>
         .table * {
             font-size: 18px;
@@ -204,7 +205,7 @@
                     tr.appendChild(buildElem('td', col !== entityName ? roundDig(obj[row][col], 2) : row));
                 });
 
-                tr.appendChild(createCroyCanvas(obj[row].R1,obj[row].R2, obj[row].f));
+                tr.appendChild(createCroyCanvas(obj[row].R1, obj[row].R2, obj[row].f));
                 table.appendChild(tr);
             });
 
@@ -213,23 +214,42 @@
 
         }
 
-        // const params = getParamsV1(250);
+        function createSVGCroy(r1, r2, angle, w = 200, h = 200, scale = 0.4) {
+            const ns = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(ns, 'svg');
+            const path = document.createElementNS(ns, 'path');
+            const x0 = w / 2;
+            const y0 = h / 2;
+            const v1 = {
+                x1: x0 + r1*Math.cos((angle / 180) * Math.PI),
+                y1: y0 + r1*Math.sin((angle / 180) * Math.PI),
+                x2: x0 + r2*Math.cos((angle / 180) * Math.PI),
+                y2: y0 + r2*Math.sin((angle / 180) * Math.PI)
+            }
+            const v2 = {
+                x1: x0 + r1,
+                y1: y0,
+                x2: x0 + r2,
+                y2: y0
+            }
 
-        // for (const key in params) {
-        //     if (Object.hasOwnProperty.call(params, key)) {
-        //         const row = document.createElement('tr');
-        //         row.innerHTML = `<td>${key}</td><td>${roundDig(params[key].R1, 2)}</td><td>${roundDig(params[key].R2, 2)}</td><td>${roundDig(params[key].f, 2)}</td>`
+            path.setAttribute('d', `
+                M ${v1.x1} ${v1.y1}
+                L ${v1.x2} ${v1.y2}
+                A 1 1, 0, 0, 1, ${v2.x2} ${v2.y2}
+                L ${v2.x1} ${v2.y1}
+                A 1 1, 0, 0, 0, ${v1.x1} ${v1.y1}`
+            );
+            
+            svg.setAttribute('fill', "transparent")
+            svg.setAttribute('stroke', "black")
+            // svg.setAttribute('width', 500)
+            // svg.setAttribute('height', 500)
+            svg.appendChild(path);
 
-        //         document.querySelector('#table').appendChild(row)
-                
-        //     }
-        // }
+            return svg
+        }
         const params = getParamsV1(250);
-        // renderTableFromObject(getParamsV2(250));
-        // renderTableFromObject(getParamsV1(250));
-
-        // createCroy3D(params);
-        
         
         function roundDig(num, n) {
             if (+num === NaN) {
